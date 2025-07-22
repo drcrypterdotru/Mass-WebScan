@@ -15,11 +15,13 @@ try:
 except:
     pass 
 
-
+PORT_TIMEOUT = 2
 app = FastAPI()
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+else:
+    print("[!] Error DIR: 'static/' directory not found. Static files not mounted.")
 
 #DEFAULT_PORTS = [21, 22, 23, 25, 53, 80, 110, 143, 443, 445, 587, 8080, 8443]
 max_threads = multiprocessing.cpu_count() * 4
@@ -29,15 +31,20 @@ def DATA_SAVE(result, filename):
     with open(f'Success_Results/{filename}', "a") as save:
         save.write(f'{result}\n')
 
-
-async def scan_ports_threaded(host, ports=[21, 22, 23, 25, 53, 80, 110, 143, 443, 445, 587, 8080, 8443]):
- 
+# prevent crash and shutdown cleanup
+@app.on_event("shutdown")
+def shutdown_event():
+    print("[!] Shutting down ThreadPoolExecutor...")
+    executor.shutdown(wait=False)
+    
+async def THREAD_PORTSCAN(host, ports=[21, 22, 23, 25, 53, 80, 110, 143, 443, 445, 587, 8080, 8443]):
+    
     loop = asyncio.get_running_loop()
     result = {"target": host, "open_ports": [], "closed_ports": []} 
     
     def Scan_Ported(port):
         try:
-            conn = socket.create_connection((host, int(port)), timeout=2)
+            conn = socket.create_connection((host, int(port)), timeout=PORT_TIMEOUT)
             conn.close()
             
             return (port, True)
@@ -137,7 +144,7 @@ async def websocket_scan(websocket: WebSocket):
         closed_ports_count = 0
         port_frequency = {}
 
-        scan_tasks = [scan_ports_threaded(ip, ports_) for ip in targets]
+        scan_tasks = [THREAD_PORTSCAN(ip, ports_) for ip in targets]
 
         for task in asyncio.as_completed(scan_tasks):
             if scan_cancel_event.is_set():
