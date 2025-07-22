@@ -10,10 +10,7 @@ import uvicorn
 import os 
 from fastapi.responses import Response
 
-try:
-    os.mkdir('Success_Results', exist_ok=True)
-except:
-    pass 
+
 
 PORT_TIMEOUT = 2
 app = FastAPI()
@@ -209,6 +206,9 @@ async def favicon():
     return Response(status_code=204)  
 
 if __name__ == "__main__":
+    try:
+        os.makedirs('Success_Results', exist_ok=True)  # fixed here
+    except Exception as e:
+        print(f"Error Created Folder Success_Results: {e}")
     print('[+] Thread Running :', max_threads)
     uvicorn.run("main:app", host="localhost", port=8000, reload=True, log_level="debug")
-
