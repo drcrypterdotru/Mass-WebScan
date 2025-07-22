@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DRCrypter - Mass_Webscan</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+ 
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 52px;
+      height: 28px;
+    }
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #374151;
+      transition: 0.4s;
+      border-radius: 9999px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 24px;
+      width: 24px;
+      left: 2px;
+      bottom: 2px;
+      background-color: #10B981;
+      transition: 0.4s;
+      border-radius: 9999px;
+    }
+    input:checked + .slider {
+      background-color: #065f46;
+    }
+    input:checked + .slider:before {
+      transform: translateX(24px);
+    }
+  </style>
+</head>
+
+<body class="bg-gray-900 text-white p-4">
+  <a href="https://drcrypter.ru" target="_blank" rel="noopener noreferrer"
+     class="flex items-center justify-center space-x-4 mb-10 select-none hover:opacity-80 transition-opacity duration-200">
+    <h1 class="text-4xl font-extrabold text-emerald-400 leading-tight">Mass_WebScan by </h1>
+    <img
+      src="https://drcrypter.ru/data/assets/logo/logo1.png"
+      alt="DRCrypter Logo"
+      class="w-28 h-28 object-contain"
+    />
+  </a>
+</body>
+
+
+  <!-- Dialog -->
+  <div id="alertModal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-end justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+      <div class="fixed inset-0 bg-black bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+      <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+      <div class="inline-block align-bottom bg-gray-900 rounded-lg px-4 pt-5 pb-4
+                  text-left overflow-hidden shadow-xl transform transition-all
+                  sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+        <div class="sm:flex sm:items-start">
+          <div id="modalIcon" class="mx-auto flex-shrink-0 flex items-center justify-center
+                        h-12 w-12 rounded-full bg-blue-900 sm:mx-0 sm:h-10 sm:w-10"></div>
+          <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+            <h3 id="modalTitle" class="text-lg leading-6 font-medium text-white"></h3>
+            <div class="mt-2">
+              <p id="modalMessage" class="text-sm text-gray-300"></p>
+            </div>
+          </div>
+        </div>
+        <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
+          <button id="modalCloseBtn" type="button" class="mt-3 w-full inline-flex justify-center
+                    rounded-md border border-gray-700 shadow-sm px-4 py-2 bg-gray-800 text-white text-base
+                    font-medium hover:bg-gray-700 focus:outline-none
+                    focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+    <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+      <div class="flex items-center space-x-3 mb-6 select-none justify-center">
+        <span class="text-gray-300 font-medium">Single Scan</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="modeToggle" />
+          <span class="slider"></span>
+        </label>
+        <span class="text-gray-300 font-medium">Mass Ranger - CIDR</span>
+      </div>
+
+      <form id="scanForm" class="space-y-6" autocomplete="off">
+
+        <!-- Target IP or Domain Input -->
+        <div id="singleInput">
+          <label for="singleTarget" class="block text-gray-300 mb-1 font-semibold">Target IP or Domain</label>
+          <input
+            id="singleTarget"
+            name="single_target"
+            type="text"
+            placeholder="e.g., 192.168.1.100 or example.com"
+            class="w-full p-3 rounded bg-gray-700 border border-gray-600 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            required
+          />
+        </div>
+
+        <!-- Bulk Scan Inputs -->
+        <div id="bulkInputs" class="hidden space-y-4">
+          <div>
+            <label for="ipRange" class="block text-gray-300 mb-1 font-semibold">IP Range</label>
+            <input
+              id="ipRange"
+              name="ip_range"
+              type="text"
+              placeholder="e.g., 192.168.1.1-192.168.1.255"
+              class="w-full p-3 rounded bg-gray-700 border border-gray-600 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            />
+          </div>
+
+          <div>
+            <label for="cidrList" class="block text-gray-300 mb-1 font-semibold">CIDR</label>
+            <textarea
+              name="cidrList"
+              id="cidr"
+              rows="5"
+              placeholder="EX: 192.168.0.0/24"
+              class="w-full p-3 rounded bg-gray-700 border border-gray-600 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            ></textarea>
+          </div>
+        </div>
+
+        <!-- Custom Ports Input -->
+        <div>
+          <label for="customPorts" class="block text-gray-300 mb-1 font-semibold">Custom Ports (comma separated)</label>
+          <input
+            id="customPorts"
+            name="custom_ports"
+            type="text"
+            placeholder="e.g., 80,443,8080"
+            value="80,443"
+            class="w-full p-3 rounded bg-gray-700 border border-gray-600 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+          />
+          <p class="text-xs text-gray-400 mt-1">Enter ports separated by commas. Default ports 80 and 443</p>
+        </div>
+
+        <!-- Start and Stop Buttons -->
+        <div class="flex space-x-4">
+          <button
+            id="startBtn"
+            type="submit"
+            class="flex-grow bg-emerald-500 hover:bg-emerald-600 font-semibold py-3 rounded transition-colors duration-200"
+          >
+            Start Scan
+          </button>
+          <button
+            id="stopBtn"
+            type="button"
+            class="flex-grow bg-red-600 hover:bg-red-700 font-semibold py-3 rounded transition-colors duration-200 disabled:opacity-50"
+            disabled
+          >
+            Stop Scan
+          </button>
+        </div>
+      </form>
+    </div>
+
+
+    <div id="resultsSection" class="bg-gray-800 rounded-lg shadow-lg p-6 overflow-hidden">
+      <h2 class="text-2xl font-bold mb-4 text-center">Log Chart & Log Console</h2>
+      <canvas id="portChart" class="mx-auto max-w-xs mb-6"></canvas>
+      <div
+        id="results"
+        class="bg-gray-900 rounded p-4 max-h-96 overflow-y-auto text-sm font-mono text-green-400 whitespace-pre-wrap"
+      ></div>
+    </div>
+  </div> 
+
+  <!-- Status Card boxs : Ports Connected / Failed / Progress / Top Port -->
+  <div class="bg-gray-800 rounded-lg shadow-lg p-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+
+      <!-- Card box 1: Ports Connected -->
+      <div class="bg-green-900/20 border border-green-600 rounded-2xl p-28 shadow-inner text-center">
+        <div class="text-4xl mb-2">🟢</div>
+        <h2 class="text-green-400 text-sm font-semibold">Ports Connected</h2>
+        <p id="openPortsCount" class="text-3xl font-extrabold text-green-300 my-2">0</p>
+        <p class="text-xs text-green-200">Successful TCP connections.</p>
+      </div>
+
+      <!-- Card box 2: Ports Failed -->
+      <div class="bg-red-900/20 border border-red-600 rounded-2xl p-28 shadow-inner text-center">
+        <div class="text-4xl mb-2">🔴</div>
+        <h2 class="text-red-400 text-sm font-semibold">Ports Failed</h2>
+        <p id="closedPortsCount" class="text-3xl font-extrabold text-red-300 my-2">0</p>
+        <p class="text-xs text-red-200">Connections refused or blocked.</p>
+      </div>
+
+      <!-- Card box 3: Progress Donut -->
+      <div class="bg-blue-900/20 border border-blue-600 rounded-2xl p-8 shadow-inner text-center">
+        <div class="text-4xl mb-2">📊</div>
+        <h2 class="text-blue-400 text-sm font-semibold mb-1">Progress Task</h2>
+        <div class="relative w-24 h-24 mx-auto mb-2">
+          <canvas id="donutChart" width="96" height="96"></canvas>
+          <div class="absolute inset-0 flex items-center justify-center">
+            <span id="progressPercent" class="text-lg font-bold text-white">0%</span>
+          </div>
+        </div>
+        <p class="text-xs text-blue-200">Task on delivery</p>
+      </div>
+
+      <!-- Card box 4 => Top Ports Chart -->
+      <div class="bg-purple-900/20 border border-purple-600 rounded-2xl p-8 shadow-inner text-center">
+        <div class="text-4xl mb-2">📈</div>
+        <h2 class="text-purple-400 text-sm font-semibold mb-2">Top Open Ports</h2>
+        <canvas id="topPortsChart" width="100" height="80"></canvas>
+        <p class="text-xs text-purple-200 mt-1">Detected Ports in Real-Time.</p>
+      </div>
+
+    </div>
+  </div>
+
+
+  <script>
+
+      document.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("modalCloseBtn").addEventListener("click", () => {
+      document.getElementById("alertModal").classList.add("hidden");
+
+      });
+
+      // Elements of UI
+      const modeToggle = document.getElementById("modeToggle");
+      const singleInput = document.getElementById("singleInput");
+      const bulkInputs = document.getElementById("bulkInputs");
+      const scanForm = document.getElementById("scanForm");
+      const resultsDiv = document.getElementById("results");
+      const percentText = document.getElementById("progressPercent");
+
+      const openPortsCountEl = document.getElementById("openPortsCount");
+      const closedPortsCountEl = document.getElementById("closedPortsCount");
+      // const lostPortsCountEl = document.getElementById("lostPortsCount");
+
+      const startBtn = document.getElementById("startBtn");
+      const stopBtn = document.getElementById("stopBtn");
+
+
+      let donutChart;
+      let portChart;
+
+      let topPortsChart;
+
+      let animationFrame;
+      let ws = null;
+      let scanning = false;
+
+      // Setup charts
+      function setupProgressDonut() {
+        const ctx = document.getElementById('donutChart').getContext('2d');
+        if (donutChart) donutChart.destroy();
+
+        donutChart = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Completed', 'Remaining'],
+            datasets: [{
+              data: [0, 100],
+              backgroundColor: ['#10b981', '#374151'],
+              borderWidth: 0
+            }]
+          },
+          options: {
+            cutout: '75%',
+            animation: { duration: 300 },
+            responsive: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: { enabled: false }
+            }
+          }
+        });
+      }
+
+      function updateDonutChart(done, total) {
+        const percent = total === 0 ? 0 : Math.round((done / total) * 100);
+        if (animationFrame) cancelAnimationFrame(animationFrame);
+        animationFrame = requestAnimationFrame(() => {
+          donutChart.data.datasets[0].data = [percent, 100 - percent];
+          donutChart.update();
+          percentText.textContent = `${percent}%`;
+        });
+      }
+
+      function renderPortsChart(data) {
+        const ctx = document.getElementById("portChart").getContext("2d");
+        if (portChart) portChart.destroy();
+
+        portChart = new Chart(ctx, {
+          type: "doughnut",
+          data: {
+            labels: ["Open Ports", "Closed Ports"],
+            datasets: [{
+              data: [data.open, data.closed],
+              backgroundColor: ["#10B981", "#EF4444", "#FBBF24"],
+              hoverOffset: 10,
+            }],
+          },
+          options: {
+            plugins: {
+              legend: {
+                position: "bottom",
+                labels: { color: "white" }
+              }
+            }
+          }
+        });
+      }
+
+      // function renderTrafficChart(successCount, failCount) {
+      //   const ctx = document.getElementById("trafficChart").getContext("2d");
+      //   if (trafficChart) trafficChart.destroy();
+
+      //   trafficChart = new Chart(ctx, {
+      //     type: 'doughnut',
+      //     data: {
+      //       labels: ['Success', 'Fail'],
+      //       datasets: [{
+      //         data: [successCount, failCount],
+      //         backgroundColor: ['#10B981', '#EF4444'],
+      //         hoverOffset: 10,
+      //       }],
+      //     },
+      //     options: {
+      //       plugins: {
+      //         legend: {
+      //           position: 'bottom',
+      //           labels: { color: 'white' },
+      //         }
+      //       },
+      //       cutout: '70%',
+      //     }
+      //   });
+      // }
+
+      function renderTopPortsChart(portFrequency) {
+        const ctx = document.getElementById("topPortsChart").getContext("2d");
+        if (topPortsChart) topPortsChart.destroy();
+
+        const labels = Object.keys(portFrequency);
+        const values = Object.values(portFrequency);
+
+        topPortsChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Open Port Count',
+              data: values,
+              backgroundColor: '#10B981',
+            }],
+          },
+          options: {
+            scales: {
+              x: {
+                ticks: { color: 'white' },
+                grid: { display: false }
+              },
+              y: {
+                ticks: { color: 'white' },
+                beginAtZero: true,
+                grid: { color: '#374151' }
+              }
+            },
+            plugins: {
+              legend: { display: false },
+              tooltip: { enabled: true }
+            }
+          }
+        });
+      }
+
+      // Toggle mode UI
+      modeToggle.addEventListener("change", () => {
+        if (modeToggle.checked) {
+          singleInput.classList.add("hidden");
+          bulkInputs.classList.remove("hidden");
+          document.getElementById("singleTarget").removeAttribute("required");
+        } else {
+          singleInput.classList.remove("hidden");
+          bulkInputs.classList.add("hidden");
+          document.getElementById("singleTarget").setAttribute("required", "true");
+        }
+      });
+
+      // Show alert modal dialog
+      function showAlert(message, type = "info") {
+        const modal = document.getElementById("alertModal");
+        const modalTitle = document.getElementById("modalTitle");
+        const modalMessage = document.getElementById("modalMessage");
+        const modalIcon = document.getElementById("modalIcon");
+
+        switch(type) {
+          case "success":
+            modalTitle.textContent = "Success";
+            modalIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>`;
+            modalIcon.className = "mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-green-100 sm:mx-0 sm:h-10 sm:w-10";
+            break;
+          case "error":
+            modalTitle.textContent = "Error";
+            modalIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>`;
+            modalIcon.className = "mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10";
+            break;
+          default:
+            modalTitle.textContent = "Information";
+            modalIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01"/></svg>`;
+            modalIcon.className = "mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10";
+        }
+        modalMessage.textContent = message;
+        modal.classList.remove("hidden");
+      }
+
+      // WebSocket scan 
+      scanForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        if (scanning) {
+          showAlert("Scan already running!", "error");
+          return;
+        }
+
+        let payload = {};
+        // if (modeToggle.checked) {
+        //   const ipRange = document.getElementById("ipRange").value.trim();
+        //   const cidr = document.getElementById("cidr").value.trim();
+        //   payload = { mode: "bulk", ip_range: ipRange, cidr: cidr };
+        // } else {
+        //   const target = document.getElementById("singleTarget").value.trim();
+        //   if (!target) {
+        //     showAlert("Please enter a target IP or domain.", "error");
+        //     return;
+        //   }
+        //   payload = { mode: "single", target: target };
+        // }
+
+        if (modeToggle.checked) {
+          // bulk => ip range \ cdir mode
+          const ipRange = document.getElementById("ipRange").value.trim();
+          const cidr = document.getElementById("cidr").value.trim();
+          customPorts = document.getElementById("customPorts").value.trim();
+          payload = { mode: "bulk", ip_range: ipRange, cidr: cidr, ports: customPorts };
+        } else {
+          // single mode
+          const target = document.getElementById("singleTarget").value.trim();
+          customPorts = document.getElementById("customPorts").value.trim();
+          payload = { mode: "single", target: target, ports: customPorts };
+        }
+
+        // Open WebSocket connection
+        const protocol = location.protocol === "https:" ? "wss" : "ws";
+        const wsUrl = `${protocol}://${location.host}/ws/scan`; 
+
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          scanning = true;
+          startBtn.disabled = true;
+          stopBtn.disabled = false;
+          resultsDiv.textContent = "";
+          updateDonutChart(0, 1);
+          openPortsCountEl.textContent = "0";
+          closedPortsCountEl.textContent = "0";
+          // renderPortsChart({open:0, closed:0, lost:0});
+          // renderTrafficChart(0, 0);
+          renderTopPortsChart({});
+
+          ws.send(JSON.stringify(payload));
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+
+            if (data.progress_done !== undefined && data.progress_total !== undefined) {
+              updateDonutChart(data.progress_done, data.progress_total);
+            }
+            if (data.open_ports !== undefined && data.closed_ports !== undefined) {
+              openPortsCountEl.textContent = data.open_ports;
+              closedPortsCountEl.textContent = data.closed_ports;
+              renderPortsChart({open: data.open_ports, closed: data.closed_ports});
+            }
+           
+            if (data.top_ports !== undefined) {
+              renderTopPortsChart(data.top_ports);
+            }
+            if (data.new_result_line !== undefined) {
+              resultsDiv.textContent += data.new_result_line + "\n";
+              resultsDiv.scrollTop = resultsDiv.scrollHeight;
+            }
+            if (data.status === "done") {
+              showAlert("Scan completed!", "success");
+              scanning = false;
+              startBtn.disabled = false;
+              stopBtn.disabled = true;
+              ws.close();
+            }
+          } catch(err) {
+            console.error("Error parsing WS message:", err);
+          }
+        };
+
+        ws.onerror = (err) => {
+          console.error("WebSocket error:", err);
+          showAlert("WebSocket error occurred.", "error");
+          scanning = false;
+          startBtn.disabled = false;
+          stopBtn.disabled = true;
+          if(ws) ws.close();
+        };
+
+        ws.onclose = () => {
+          if(scanning) {
+            showAlert("WebSocket connection closed unexpectedly.", "error");
+          }
+          scanning = false;
+          startBtn.disabled = false;
+          stopBtn.disabled = true;
+        };
+      });
+
+      // Stop scan button logic
+      stopBtn.addEventListener("click", () => {
+        if (ws && scanning) {
+          ws.send(JSON.stringify({ command: "stop" }));
+          showAlert("Stopping scan...", "info");
+        }
+      });
+
+      // Init charts on load
+      setupProgressDonut();
+      renderPortsChart({open:0, closed:0});
+      renderTopPortsChart({});
+    });
+    
+  </script>
+</body>
+</html>
