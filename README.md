@@ -8,13 +8,13 @@ Whether you're a **developer**, **security enthusiast**, or **network admin**, t
 
 🌐 **Proof Mass_WebScan based on Web-UI**
 
-![Demo #1](https://raw.githubusercontent.com/drcrypterdotru/Mass-WebScan/refs/heads/main/1.png)
+![Demo #1](https://raw.githubusercontent.com/drcrypterdotru/Mass-WebScan/refs/heads/main/demo/1.png)
 
-![Demo #2](https://raw.githubusercontent.com/drcrypterdotru/Mass-WebScan/refs/heads/main/2.png)
+![Demo #2](https://raw.githubusercontent.com/drcrypterdotru/Mass-WebScan/refs/heads/main/demo/2.png)
 
-![Demo #3](https://raw.githubusercontent.com/drcrypterdotru/Mass-WebScan/refs/heads/main/3.png)
+![Demo #3](https://raw.githubusercontent.com/drcrypterdotru/Mass-WebScan/refs/heads/main/demo/3.png)
 
-![Demo #4](https://raw.githubusercontent.com/drcrypterdotru/Mass-WebScan/refs/heads/main/4.png)
+![Demo #4](https://raw.githubusercontent.com/drcrypterdotru/Mass-WebScan/refs/heads/main/demo/4.png)
 
 
 ## 🌐 Features
