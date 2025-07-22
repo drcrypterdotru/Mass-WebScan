@@ -48,8 +48,13 @@ pip install -r requirements.txt
 python3 main.py and open browser localhost:8000
 ```
 
+[Link DEMO & Usage Telegram Video](https://t.me/c/2488765399/250)
+
 
 ---
+
+
+
 
 ## ⚠️ Warning & Disclaimer
 
