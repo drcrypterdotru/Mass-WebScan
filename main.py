@@ -1,5 +1,5 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 import asyncio
 import socket
@@ -7,20 +7,18 @@ from ipaddress import ip_address, ip_network
 import concurrent.futures
 import multiprocessing
 import uvicorn
-import os 
-from fastapi.responses import Response
+import os
 
 
 
-PORT_TIMEOUT = 2
 app = FastAPI()
+PORT_TIMEOUT = 5
 
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
 else:
-    print("[!] Error DIR: 'static/' directory not found. Static files not mounted.")
+    print("[!] Warning: 'static/' directory not found")
 
-#DEFAULT_PORTS = [21, 22, 23, 25, 53, 80, 110, 143, 443, 445, 587, 8080, 8443]
 max_threads = multiprocessing.cpu_count() * 4
 executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_threads)
 
@@ -28,22 +26,14 @@ def DATA_SAVE(result, filename):
     with open(f'Success_Results/{filename}', "a") as save:
         save.write(f'{result}\n')
 
-# prevent crash and shutdown cleanup
-@app.on_event("shutdown")
-def shutdown_event():
-    print("[!] Shutting down ThreadPoolExecutor...")
-    executor.shutdown(wait=False)
-    
-async def THREAD_PORTSCAN(host, ports=[21, 22, 23, 25, 53, 80, 110, 143, 443, 445, 587, 8080, 8443]):
-    
+async def scan_ports_threaded(host, ports=[21, 22, 23, 25, 53, 80, 110, 143, 443, 445, 587, 8080, 8443]):
     loop = asyncio.get_running_loop()
-    result = {"target": host, "open_ports": [], "closed_ports": []} 
-    
+    result = {"target": host, "open_ports": [], "closed_ports": []}
+
     def Scan_Ported(port):
         try:
             conn = socket.create_connection((host, int(port)), timeout=PORT_TIMEOUT)
             conn.close()
-            
             return (port, True)
         except:
             return (port, False)
@@ -52,7 +42,7 @@ async def THREAD_PORTSCAN(host, ports=[21, 22, 23, 25, 53, 80, 110, 143, 443, 44
 
     for future in asyncio.as_completed(tasks):
         port, Port_Success = await future
-        if Port_Success:
+        if Port_Success :
             DATA_SAVE(f'{host}:{port}', 'Live_Data.txt')
             result["open_ports"].append(port)
         else:
@@ -60,11 +50,9 @@ async def THREAD_PORTSCAN(host, ports=[21, 22, 23, 25, 53, 80, 110, 143, 443, 44
 
     if result["open_ports"]:
         DATA_SAVE(host, 'Live_IP.txt')
-
     else:
         DATA_SAVE(host, 'RIP_Data.txt')
 
-    
     return result
 
 def IP_Ranger(start_ip, end_ip):
@@ -104,11 +92,10 @@ async def websocket_scan(websocket: WebSocket):
                 targets = [target]
 
         elif mode == "bulk":
-             
             ip_range = data.get("ip_range", "").strip()
             cidr_value = data.get("cidr", "").strip()
 
-            # IP range like 192.168.1.1 - 192.168.1.255
+            # IP range
             if "-" in ip_range:
                 try:
                     range_targets = IP_Ranger(*map(str.strip, ip_range.split("-")))
@@ -117,39 +104,70 @@ async def websocket_scan(websocket: WebSocket):
                     await websocket.send_json({"type": "error", "message": f"Invalid IP range: {e}"})
                     return
 
-            # CIDR Lists
+
             if cidr_value:
-                for j in cidr_value.splitlines():
-                    j = j.strip()
-                    if not j:
+                for cidr_line in cidr_value.splitlines():
+                    cidr_line = cidr_line.strip()
+                    if not cidr_line:
                         continue
                     try:
-                        CHUCK_HOSTS = 100000
-                        net = ip_network(j, strict=False)
-                        count = 0
-                        for ip in net.hosts():
-                            if count >= CHUCK_HOSTS:
-                                await websocket.send_json({
-                                    "type": "warn",
-                                    "message": f"CIDR {j} is too large. Only first {CHUCK_HOSTS} IPs used."
-                                })
-                                break
-                            targets.append(str(ip))
-                            count += 1
+                        net = ip_network(cidr_line, strict=False)
+                        ips = list(net.hosts())
+                        if not ips:
+                            ips = list(net)
 
-                        if count == 0:
-                            targets.extend([str(ip) for ip in net])
+                        
+                        targets_cidr = [str(ip) for ip in ips]
+                        total_targets = len(targets_cidr)
+                        completed = 0
+                        open_ports_count = 0
+                        closed_ports_count = 0
+                        top_ported = {}
+
+                        print(f'[DEBUG] Found {cidr_line} ==>',total_targets)
+
+                        scan_tasks = [scan_ports_threaded(ip, ports_) for ip in targets_cidr]
+                        print(f"[DEBUG] START CIDR : {len(scan_tasks)}")
+                        for task in asyncio.as_completed(scan_tasks):
+                            
+                
+                            if scan_cancel_event.is_set():
+                                await websocket.send_json({"status": "stopped"})
+                                return
+
+                            result = await task
+                            completed += 1
+
+                            open_ports_count += len(result["open_ports"])
+                            closed_ports_count += len(result["closed_ports"])
+
+                            for port in result["open_ports"]:
+                                top_ported[str(port)] = top_ported.get(str(port), 0) + 1
+
+                            new_line = f"Target: {result['target']} | Open: {result['open_ports']} | Closed: {result['closed_ports']}"
+
+                            await websocket.send_json({
+                                "progress_done": completed,
+                                "progress_total": total_targets,
+                                "open_ports": open_ports_count,
+                                "closed_ports": closed_ports_count,
+                                "top_ports": top_ported,
+                                "new_result_line": new_line,
+                                "status": "running",
+                                "current_cidr": cidr_line
+                            })
 
                     except ValueError as e:
                         await websocket.send_json({"type": "error", "message": f"Invalid CIDR format: {e}"})
                         return
 
+        
+        # file_lines = data.get("file_lines", [])
+        # file_lines = [line.strip() for line in file_lines if line.strip()]
+        # targets.extend(file_lines)
 
-        file_lines = data.get("file_lines", [])
-        file_lines = [line.strip() for line in file_lines if line.strip()]
-        targets.extend(file_lines)
-
-        targets = list(set(filter(None, targets)))  
+        
+        targets = list(set(filter(None, targets)))
 
         if not targets:
             await websocket.send_json({"status": "done", "message": "No valid targets"})
@@ -159,10 +177,11 @@ async def websocket_scan(websocket: WebSocket):
         completed = 0
         open_ports_count = 0
         closed_ports_count = 0
-        port_frequency = {}
+        top_ported = {}
 
-        scan_tasks = [THREAD_PORTSCAN(ip, ports_) for ip in targets]
-
+        
+        scan_tasks = [scan_ports_threaded(ip, ports_) for ip in targets]
+        print(f"[DEBUG] START Ranger : {len(scan_tasks)}")
         for task in asyncio.as_completed(scan_tasks):
             if scan_cancel_event.is_set():
                 await websocket.send_json({"status": "stopped"})
@@ -175,7 +194,7 @@ async def websocket_scan(websocket: WebSocket):
             closed_ports_count += len(result["closed_ports"])
 
             for port in result["open_ports"]:
-                port_frequency[str(port)] = port_frequency.get(str(port), 0) + 1
+                top_ported[str(port)] = top_ported.get(str(port), 0) + 1
 
             new_line = f"Target: {result['target']} | Open: {result['open_ports']} | Closed: {result['closed_ports']}"
 
@@ -184,7 +203,7 @@ async def websocket_scan(websocket: WebSocket):
                 "progress_total": total_targets,
                 "open_ports": open_ports_count,
                 "closed_ports": closed_ports_count,
-                "top_ports": port_frequency,
+                "top_ports": top_ported,
                 "new_result_line": new_line,
                 "status": "running"
             })
@@ -212,7 +231,6 @@ async def websocket_scan(websocket: WebSocket):
                     await websocket.send_json({"type": "error", "message": "No scan is running"})
 
     except WebSocketDisconnect:
-        #print("WebSocket WebSocketDisconnect")
         if scan_task and not scan_task.done():
             scan_cancel_event.set()
             await scan_task
@@ -220,15 +238,17 @@ async def websocket_scan(websocket: WebSocket):
     except Exception as e:
         await websocket.send_json({"type": "error", "message": str(e)})
 
-
 @app.get("/favicon.ico")
 async def favicon():
-    return Response(status_code=204)  
+    return Response(status_code=204)
 
 if __name__ == "__main__":
+    # create Folder Success_Results
     try:
-        os.makedirs('Success_Results', exist_ok=True)  # fixed here
-    except Exception as e:
-        print(f"Error Created Folder Success_Results: {e}")
-    print('[+] Thread Running :', max_threads)
+        os.makedirs('Success_Results', exist_ok=True)
+    except:
+        pass 
+    
+    print(f"[+] Starting scanner with {max_threads} threads")
+    #START APP
     uvicorn.run("main:app", host="localhost", port=8000, reload=True, log_level="debug")
