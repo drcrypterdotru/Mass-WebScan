@@ -104,33 +104,53 @@ async def websocket_scan(websocket: WebSocket):
                 targets = [target]
 
         elif mode == "bulk":
+             
             ip_range = data.get("ip_range", "").strip()
             cidr_value = data.get("cidr", "").strip()
 
+            # IP range like 192.168.1.1 - 192.168.1.255
             if "-" in ip_range:
-                range_targets = IP_Ranger(*map(str.strip, str(ip_range).split("-")))
-                targets.extend(range_targets)
+                try:
+                    range_targets = IP_Ranger(*map(str.strip, ip_range.split("-")))
+                    targets.extend(range_targets)
+                except Exception as e:
+                    await websocket.send_json({"type": "error", "message": f"Invalid IP range: {e}"})
+                    return
+
+            # CIDR Lists
             if cidr_value:
-                #print(cidr_value)
                 for j in cidr_value.splitlines():
                     j = j.strip()
-                    #print(j)
+                    if not j:
+                        continue
                     try:
-                        net = ip_network(j)
-                        hosts = list(net.hosts())
-                        if not hosts:
+                        CHUCK_HOSTS = 100000
+                        net = ip_network(j, strict=False)
+                        count = 0
+                        for ip in net.hosts():
+                            if count >= CHUCK_HOSTS:
+                                await websocket.send_json({
+                                    "type": "warn",
+                                    "message": f"CIDR {j} is too large. Only first {CHUCK_HOSTS} IPs used."
+                                })
+                                break
+                            targets.append(str(ip))
+                            count += 1
+
+                        if count == 0:
                             targets.extend([str(ip) for ip in net])
-                        else:
-                            targets.extend([str(ip) for ip in hosts])
+
                     except ValueError as e:
                         await websocket.send_json({"type": "error", "message": f"Invalid CIDR format: {e}"})
                         return
 
-            file_lines = data.get("file_lines", [])
-            file_lines = [line.strip() for line in file_lines if line.strip()]
-            targets.extend(file_lines)
 
-        targets = list(set(filter(None, targets)))
+        file_lines = data.get("file_lines", [])
+        file_lines = [line.strip() for line in file_lines if line.strip()]
+        targets.extend(file_lines)
+
+        targets = list(set(filter(None, targets)))  
+
         if not targets:
             await websocket.send_json({"status": "done", "message": "No valid targets"})
             return
